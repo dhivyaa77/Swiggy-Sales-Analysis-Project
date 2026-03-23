@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Swiggy SQL Analysis | Data Portfolio</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --orange: #FC8019;
+    --orange-dim: #e06b10;
+    --deep: #050e1f;
+    --card: #0a1628;
+    --border: #162340;
+    --muted: #4a6080;
+    --text: #e6edf8;
+    --text-dim: #7a9abf;
+    --green: #3ef088;
+    --cyan: #38d4e0;
+    --pink: #f038a0;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--deep);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    overflow-x: hidden;
+  }
+
+  /* ── NOISE OVERLAY ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 999;
+    opacity: 0.5;
+  }
+
+  /* ── HERO ── */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 80px 60px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero::after {
+    content: '';
+    position: absolute;
+    top: -200px; right: -200px;
+    width: 700px; height: 700px;
+    background: radial-gradient(circle, rgba(252,128,25,0.10) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(252,128,25,0.1);
+    border: 1px solid rgba(252,128,25,0.3);
+    color: var(--orange);
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    border-radius: 2px;
+    margin-bottom: 36px;
+    width: fit-content;
+  }
+
+  .badge::before {
+    content: '';
+    width: 6px; height: 6px;
+    background: var(--orange);
+    border-radius: 50%;
+    animation: blink 1.4s infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.2; }
+  }
+
+  h1 {
+    font-size: clamp(42px, 7vw, 90px);
+    font-weight: 800;
+    line-height: 0.95;
+    letter-spacing: -2px;
+    margin-bottom: 24px;
+  }
+
+  h1 .accent { color: var(--orange); }
+  h1 .dim { color: var(--muted); }
+
+  .hero-sub {
+    font-size: 17px;
+    color: var(--text-dim);
+    max-width: 540px;
+    line-height: 1.65;
+    font-weight: 400;
+    margin-bottom: 48px;
+  }
+
+  .kpi-strip {
+    display: flex;
+    gap: 40px;
+    flex-wrap: wrap;
+  }
+
+  .kpi-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .kpi-num {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--orange);
+    font-family: 'Space Mono', monospace;
+  }
+
+  .kpi-label {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .divider { width: 1px; background: var(--border); align-self: stretch; }
+
+  /* ── NAV DOTS ── */
+  .nav-dots {
+    position: fixed;
+    right: 30px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 100;
+  }
+
+  .dot {
+    width: 8px; height: 8px;
+    border: 1px solid var(--muted);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+
+  .dot.active { background: var(--orange); border-color: var(--orange); transform: scale(1.4); }
+
+  /* ── SECTIONS ── */
+  section {
+    padding: 100px 60px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .section-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--orange);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+
+  .section-title {
+    font-size: clamp(28px, 4vw, 48px);
+    font-weight: 800;
+    letter-spacing: -1px;
+    margin-bottom: 60px;
+    line-height: 1.1;
+  }
+
+  /* ── SCHEMA DIAGRAM ── */
+  .schema-wrap {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 40px;
+    overflow-x: auto;
+  }
+
+  .schema-diagram {
+    display: grid;
+    grid-template-columns: 1fr 1.4fr 1fr;
+    grid-template-rows: auto auto auto;
+    gap: 16px;
+    min-width: 700px;
+    align-items: center;
+    justify-items: center;
+  }
+
+  .dim-table {
+    background: rgba(252,128,25,0.06);
+    border: 1px solid rgba(252,128,25,0.25);
+    border-radius: 6px;
+    padding: 14px 18px;
+    width: 160px;
+    text-align: center;
+  }
+
+  .dim-table h4 {
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    color: var(--orange);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(252,128,25,0.2);
+  }
+
+  .dim-table p {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-family: 'Space Mono', monospace;
+    line-height: 1.8;
+  }
+
+  .fact-table {
+    background: rgba(56,212,224,0.06);
+    border: 2px solid rgba(56,212,224,0.4);
+    border-radius: 8px;
+    padding: 20px 24px;
+    width: 200px;
+    text-align: center;
+    grid-row: 1 / 4;
+    grid-column: 2;
+    position: relative;
+  }
+
+  .fact-table h4 {
+    font-size: 12px;
+    font-family: 'Space Mono', monospace;
+    color: var(--cyan);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(56,212,224,0.2);
+  }
+
+  .fact-table p {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-family: 'Space Mono', monospace;
+    line-height: 2;
+  }
+
+  .fact-badge {
+    position: absolute;
+    top: -12px; left: 50%;
+    transform: translateX(-50%);
+    background: var(--cyan);
+    color: var(--deep);
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 3px 10px;
+    border-radius: 2px;
+  }
+
+  /* ── SQL CARDS ── */
+  .sql-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 20px;
+  }
+
+  .sql-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    transition: border-color 0.3s, transform 0.3s;
+    cursor: pointer;
+  }
+
+  .sql-card:hover {
+    border-color: rgba(252,128,25,0.4);
+    transform: translateY(-3px);
+  }
+
+  .card-header {
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(255,255,255,0.02);
+  }
+
+  .card-icon {
+    width: 32px; height: 32px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .card-title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+  }
+
+  .card-category {
+    font-size: 10px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    margin-left: auto;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .card-body { padding: 0; }
+
+  pre {
+    font-family: 'Space Mono', monospace;
+    font-size: 11.5px;
+    line-height: 1.75;
+    color: var(--text-dim);
+    padding: 20px;
+    overflow-x: auto;
+    background: transparent;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  .kw { color: #569cd6; }
+  .fn { color: #dcdcaa; }
+  .str { color: #ce9178; }
+  .cm { color: #6a9955; }
+  .tbl { color: #4ec9b0; }
+  .num { color: #b5cea8; }
+  .op { color: var(--orange); }
+
+  .card-insight {
+    padding: 12px 20px;
+    border-top: 1px solid var(--border);
+    background: rgba(252,128,25,0.04);
+    font-size: 12px;
+    color: var(--text-dim);
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .insight-icon { color: var(--orange); flex-shrink: 0; margin-top: 1px; }
+
+  /* ── PIPELINE FLOW ── */
+  .pipeline {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    overflow-x: auto;
+    padding-bottom: 10px;
+  }
+
+  .pipe-step {
+    flex: 1;
+    min-width: 160px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-right: none;
+    padding: 24px 20px;
+    position: relative;
+    transition: background 0.3s;
+  }
+
+  .pipe-step:first-child { border-radius: 8px 0 0 8px; }
+  .pipe-step:last-child { border-right: 1px solid var(--border); border-radius: 0 8px 8px 0; }
+  .pipe-step:hover { background: rgba(252,128,25,0.05); }
+
+  .pipe-step::after {
+    content: '▶';
+    position: absolute;
+    right: -13px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    font-size: 16px;
+    z-index: 2;
+    background: var(--deep);
+    line-height: 1;
+  }
+
+  .pipe-step:last-child::after { display: none; }
+
+  .pipe-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--orange);
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
+
+  .pipe-name {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  .pipe-desc {
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.6;
+    font-family: 'Space Mono', monospace;
+  }
+
+  /* ── INSIGHTS GRID ── */
+  .insight-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+  }
+
+  .insight-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    transition: border-color 0.3s;
+  }
+
+  .insight-card:hover { border-color: rgba(252,128,25,0.3); }
+
+  .insight-emoji {
+    font-size: 24px;
+    width: 42px; height: 42px;
+    background: rgba(252,128,25,0.1);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .insight-text h4 {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  .insight-text p {
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.6;
+  }
+
+  /* ── TECH STACK ── */
+  .tech-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 10px;
+  }
+
+  .tech-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px 14px;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+    transition: border-color 0.3s, color 0.3s;
+  }
+
+  .tech-chip:hover { border-color: var(--orange); color: var(--text); }
+  .tech-chip span { color: var(--orange); font-size: 14px; }
+
+
+
+  /* ── FOOTER ── */
+  footer {
+    padding: 40px 60px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  /* ── SCROLL ANIMATIONS ── */
+  .fade-up {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+
+  .fade-up.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  @media (max-width: 768px) {
+    .hero, section { padding: 60px 24px; }
+    .kpi-strip { gap: 24px; }
+    .divider { display: none; }
+    .nav-dots { display: none; }
+    .pipeline { flex-direction: column; }
+    .pipe-step { border-right: 1px solid var(--border); border-radius: 0; border-bottom: none; }
+    .pipe-step:first-child { border-radius: 8px 8px 0 0; }
+    .pipe-step:last-child { border-bottom: 1px solid var(--border); border-radius: 0 0 8px 8px; }
+    .pipe-step::after { content: '▼'; right: auto; left: 50%; top: auto; bottom: -14px; transform: translateX(-50%); }
+    footer { padding: 30px 24px; flex-direction: column; text-align: center; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV DOTS -->
+<nav class="nav-dots" id="navDots">
+  <div class="dot active" data-section="0" title="Overview"></div>
+  <div class="dot" data-section="1" title="Pipeline"></div>
+  <div class="dot" data-section="2" title="Schema"></div>
+  <div class="dot" data-section="3" title="SQL Queries"></div>
+  <div class="dot" data-section="4" title="Insights"></div>
+
+</nav>
+
+<!-- HERO -->
+<div class="hero" id="sec0">
+  <div class="badge">SQL Data Analysis Project</div>
+  <h1>
+    <span class="dim">Swiggy</span><br>
+    <span class="accent">Food Delivery</span><br>
+    Analysis
+  </h1>
+  <p class="hero-sub">
+    End-to-end SQL analytics on Swiggy's food delivery data — from raw ingestion to star schema data warehouse, covering order trends, revenue performance, location insights, and cuisine preferences.
+  </p>
+  <div class="kpi-strip">
+    <div class="kpi-item">
+      <span class="kpi-num">53M+</span>
+      <span class="kpi-label">INR Revenue</span>
+    </div>
+    <div class="divider"></div>
+    <div class="kpi-item">
+      <span class="kpi-num">5</span>
+      <span class="kpi-label">Dimension Tables</span>
+    </div>
+    <div class="divider"></div>
+    <div class="kpi-item">
+      <span class="kpi-num">25+</span>
+      <span class="kpi-label">SQL Queries</span>
+    </div>
+    <div class="divider"></div>
+    <div class="kpi-item">
+      <span class="kpi-num">Star</span>
+      <span class="kpi-label">Schema Model</span>
+    </div>
+  </div>
+</div>
+
+<!-- PIPELINE -->
+<section id="sec1">
+  <p class="section-label fade-up">Methodology</p>
+  <h2 class="section-title fade-up">Analysis Pipeline</h2>
+  <div class="pipeline fade-up">
+    <div class="pipe-step">
+      <div class="pipe-num">01 // INGEST</div>
+      <div class="pipe-name">Raw Data</div>
+      <div class="pipe-desc">Load Swiggy CSV into swiggy_database.swiggy_data table</div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-num">02 // CLEAN</div>
+      <div class="pipe-name">Data Quality</div>
+      <div class="pipe-desc">Null checks, empty string detection, duplicate removal via ROW_NUMBER()</div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-num">03 // MODEL</div>
+      <div class="pipe-name">Star Schema</div>
+      <div class="pipe-desc">5 dimension tables + 1 fact table with FK constraints</div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-num">04 // LOAD</div>
+      <div class="pipe-name">ETL Insert</div>
+      <div class="pipe-desc">Populate dims with DISTINCT values, fact table via multi-JOIN inserts</div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-num">05 // ANALYZE</div>
+      <div class="pipe-name">KPIs & Trends</div>
+      <div class="pipe-desc">Revenue, location, food, time-series, and price-range analytics</div>
+    </div>
+  </div>
+</section>
+
+<!-- SCHEMA -->
+<section id="sec2">
+  <p class="section-label fade-up">Data Architecture</p>
+  <h2 class="section-title fade-up">Star Schema Design</h2>
+  <div class="schema-wrap fade-up">
+    <div class="schema-diagram">
+
+      <!-- Left column -->
+      <div class="dim-table">
+        <h4>dim_date</h4>
+        <p>date_id PK<br>Full_date<br>Year · Month<br>Month_name<br>Quarter · Day<br>Week</p>
+      </div>
+
+      <!-- Center: Fact Table -->
+      <div class="fact-table" style="grid-row:1/4;grid-column:2;">
+        <div class="fact-badge">FACT</div>
+        <h4>fact_swiggy</h4>
+        <p>order_id PK<br>date_id FK<br>location_id FK<br>restaurant_id FK<br>category_id FK<br>dish_id FK<br>Price_INR<br>Rating<br>Rating_count</p>
+      </div>
+
+      <div class="dim-table">
+        <h4>dim_location</h4>
+        <p>location_id PK<br>State<br>City<br>Location</p>
+      </div>
+
+      <div class="dim-table">
+        <h4>dim_restaurant</h4>
+        <p>restaurant_id PK<br>Restaurant_name</p>
+      </div>
+
+      <div class="dim-table">
+        <h4>dim_dish</h4>
+        <p>dish_id PK<br>Dish</p>
+      </div>
+
+      <div class="dim-table">
+        <h4>dim_category</h4>
+        <p>category_id PK<br>Category</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- SQL QUERIES -->
+<section id="sec3">
+  <p class="section-label fade-up">Core Queries</p>
+  <h2 class="section-title fade-up">SQL Analytics Library</h2>
+  <div class="sql-grid">
+
+    <!-- Data Cleaning -->
+    <div class="sql-card fade-up">
+      <div class="card-header">
+        <div class="card-icon" style="background:rgba(240,56,160,0.1);">🧹</div>
+        <span class="card-title">Duplicate Detection & Removal</span>
+        <span class="card-category">Cleaning</span>
+      </div>
+      <div class="card-body">
+<pre><span class="cm">-- Find duplicates</span>
+<span class="kw">SELECT</span> State, City, Restaurant_Name,
+       Dish_Name, Price, Rating,
+       <span class="fn">COUNT</span>(*) <span class="kw">AS</span> CNT
+<span class="kw">FROM</span> <span class="tbl">swiggy_data</span>
+<span class="kw">GROUP BY</span> State, City, Restaurant_Name,
+         Dish_Name, Price, Rating
+<span class="kw">HAVING</span> <span class="fn">COUNT</span>(*) <span class="op">></span> <span class="num">1</span>;
+
+<span class="cm">-- Delete via ROW_NUMBER()</span>
+<span class="kw">DELETE</span> S1 <span class="kw">FROM</span> <span class="tbl">swiggy_data</span> S1
+<span class="kw">JOIN</span> (
+  <span class="kw">SELECT</span> Id <span class="kw">FROM</span> (
+    <span class="kw">SELECT</span> Id,
+      <span class="fn">ROW_NUMBER</span>() <span class="kw">OVER</span> (
+        <span class="kw">PARTITION BY</span> State, City,
+        Restaurant_Name, Dish_Name
+        <span class="kw">ORDER BY</span> (<span class="kw">SELECT NULL</span>)
+      ) <span class="kw">AS</span> Rn
+    <span class="kw">FROM</span> <span class="tbl">swiggy_data</span>) t
+  <span class="kw">WHERE</span> Rn <span class="op">></span> <span class="num">1</span>) S2
+<span class="kw">ON</span> S1.Id <span class="op">=</span> S2.Id;</pre>
+      </div>
+    </div>
+
+    <!-- Total Revenue -->
+    <div class="sql-card fade-up">
+      <div class="card-header">
+        <div class="card-icon" style="background:rgba(62,240,136,0.1);">💰</div>
+        <span class="card-title">Revenue KPIs</span>
+        <span class="card-category">KPI</span>
+      </div>
+      <div class="card-body">
+<pre><span class="cm">-- Total Revenue in INR Millions</span>
+<span class="kw">SELECT</span>
+  <span class="fn">CONCAT</span>(
+    <span class="fn">FORMAT</span>(<span class="fn">SUM</span>(
+      <span class="fn">CAST</span>(Price_INR <span class="kw">AS</span> DECIMAL(<span class="num">10</span>,<span class="num">2</span>))
+    ) / <span class="num">1000000</span>, <span class="num">2</span>),
+    <span class="str">' INR Millions'</span>
+  ) <span class="kw">AS</span> Total_Revenue
+<span class="kw">FROM</span> <span class="tbl">fact_swiggy</span>;
+
+<span class="cm">-- Average Dish Price</span>
+<span class="kw">SELECT</span>
+  <span class="fn">CONCAT</span>(
+    <span class="fn">FORMAT</span>(<span class="fn">AVG</span>(
+      <span class="fn">CAST</span>(Price_INR <span class="kw">AS</span> DECIMAL(<span class="num">10</span>,<span class="num">2</span>))
+    ), <span class="num">2</span>),
+    <span class="str">' INR'</span>
+  ) <span class="kw">AS</span> Avg_Dish_Price
+<span class="kw">FROM</span> <span class="tbl">fact_swiggy</span>;</pre>
+      </div>
+      <div class="card-insight">
+        <span class="insight-icon">◆</span>
+        Total Revenue: <strong>53.00 INR Million</strong> across all orders
+      </div>
+    </div>
+
+    <!-- Monthly Trends -->
+    <div class="sql-card fade-up">
+      <div class="card-header">
+        <div class="card-icon" style="background:rgba(56,212,224,0.1);">📅</div>
+        <span class="card-title">Monthly Order Trends</span>
+        <span class="card-category">Time Series</span>
+      </div>
+      <div class="card-body">
+<pre><span class="kw">SELECT</span>
+  d.Year, d.Month, d.Month_name,
+  <span class="fn">COUNT</span>(*) <span class="kw">AS</span> Total_Orders,
+  <span class="fn">SUM</span>(f.Price_INR) <span class="kw">AS</span> Monthly_Revenue
+<span class="kw">FROM</span> <span class="tbl">fact_swiggy</span> f
+<span class="kw">JOIN</span> <span class="tbl">dim_date</span> d
+  <span class="kw">ON</span> f.date_id <span class="op">=</span> d.date_id
+<span class="kw">GROUP BY</span>
+  d.Year, d.Month, d.Month_name
+<span class="kw">ORDER BY</span> d.Year, d.Month;</pre>
+      </div>
+      <div class="card-insight">
+        <span class="insight-icon">◆</span>
+        Peak orders in <strong>Jan, May & Aug</strong>. Higher demand at start of year.
+      </div>
+    </div>
+
+    <!-- Top Cities -->
+    <div class="sql-card fade-up">
+      <div class="card-header">
+        <div class="card-icon" style="background:rgba(252,128,25,0.1);">🏙️</div>
+        <span class="card-title">Top 10 Cities by Orders</span>
+        <span class="card-category">Location</span>
+      </div>
+      <div class="card-body">
+<pre><span class="kw">SELECT</span>
+  dl.City <span class="kw">AS</span> City,
+  <span class="fn">COUNT</span>(*) <span class="kw">AS</span> Highest_Orders,
+  <span class="fn">SUM</span>(fs.Price_INR) <span class="kw">AS</span> Revenue
+<span class="kw">FROM</span> <span class="tbl">fact_swiggy</span> fs
+<span class="kw">JOIN</span> <span class="tbl">dim_location</span> dl
+  <span class="kw">ON</span> fs.location_id <span class="op">=</span> dl.location_id
+<span class="kw">GROUP BY</span> dl.City
+<span class="kw">ORDER BY</span> <span class="fn">COUNT</span>(*) <span class="kw">DESC</span>
+<span class="kw">LIMIT</span> <span class="num">10</span>;</pre>
+      </div>
+    </div>
+
+    <!-- Quarterly Revenue -->
+    <div class="sql-card fade-up">
+      <div class="card-header">
+        <div class="card-icon" style="background:rgba(181,206,168,0.1);">📊</div>
+        <span class="card-title">Quarterly Revenue Trends</span>
+        <span class="card-category">Time Series</span>
+      </div>
+      <div class="card-body">
+<pre><span class="kw">SELECT</span>
+  d.Year, d.Quarter,
+  <span class="fn">COUNT</span>(*) <span class="kw">AS</span> Quarterly_Orders,
+  <span class="fn">SUM</span>(f.Price_INR) <span class="kw">AS</span> Quarterly_Revenue
+<span class="kw">FROM</span> <span class="tbl">fact_swiggy</span> f
+<span class="kw">JOIN</span> <span class="tbl">dim_date</span> d
+  <span class="kw">ON</span> f.date_id <span class="op">=</span> d.date_id
+<span class="kw">GROUP BY</span> d.Year, d.Quarter
+<span class="kw">ORDER BY</span>
+  <span class="fn">SUM</span>(f.Price_INR) <span class="kw">DESC</span>;</pre>
+      </div>
+      <div class="card-insight">
+        <span class="insight-icon">◆</span>
+        <strong>Q2 peaks</strong> in both orders and revenue across all years.
+      </div>
+    </div>
+
+    <!-- Cuisine Performance -->
+    <div class="sql-card fade-up">
+      <div class="card-header">
+        <div class="card-icon" style="background:rgba(240,56,160,0.1);">🍛</div>
+        <span class="card-title">Cuisine Orders + Avg Rating</span>
+        <span class="card-category">Food</span>
+      </div>
+      <div class="card-body">
+<pre><span class="kw">SELECT</span>
+  c.Category <span class="kw">AS</span> Category,
+  <span class="fn">COUNT</span>(*) <span class="kw">AS</span> Total_Orders,
+  <span class="fn">ROUND</span>(<span class="fn">AVG</span>(fs.Rating), <span class="num">2</span>)
+    <span class="kw">AS</span> Avg_Rating
+<span class="kw">FROM</span> <span class="tbl">fact_swiggy</span> fs
+<span class="kw">JOIN</span> <span class="tbl">dim_category</span> c
+  <span class="kw">ON</span> fs.category_id <span class="op">=</span> c.category_id
+<span class="kw">GROUP BY</span> c.Category
+<span class="kw">ORDER BY</span> Total_Orders <span class="kw">DESC</span>;</pre>
+      </div>
+    </div>
+
+    <!-- Price Range -->
+    <div class="sql-card fade-up">
+      <div class="card-header">
+        <div class="card-icon" style="background:rgba(56,212,224,0.1);">💲</div>
+        <span class="card-title">Order Volume by Price Range</span>
+        <span class="card-category">Pricing</span>
+      </div>
+      <div class="card-body">
+<pre><span class="kw">SELECT</span>
+  <span class="kw">CASE</span>
+    <span class="kw">WHEN</span> Price_INR <span class="op"><</span> <span class="num">100</span>
+      <span class="kw">THEN</span> <span class="str">'Under 100'</span>
+    <span class="kw">WHEN</span> Price_INR <span class="kw">BETWEEN</span>
+      <span class="num">100</span> <span class="kw">AND</span> <span class="num">199</span>
+      <span class="kw">THEN</span> <span class="str">'100–199'</span>
+    <span class="kw">WHEN</span> Price_INR <span class="kw">BETWEEN</span>
+      <span class="num">200</span> <span class="kw">AND</span> <span class="num">299</span>
+      <span class="kw">THEN</span> <span class="str">'200–299'</span>
+    <span class="kw">WHEN</span> Price_INR <span class="kw">BETWEEN</span>
+      <span class="num">300</span> <span class="kw">AND</span> <span class="num">499</span>
+      <span class="kw">THEN</span> <span class="str">'300–499'</span>
+    <span class="kw">ELSE</span> <span class="str">'500+'</span>
+  <span class="kw">END</span> <span class="kw">AS</span> Price_range,
+  <span class="fn">COUNT</span>(*) <span class="kw">AS</span> Total_orders
+<span class="kw">FROM</span> <span class="tbl">fact_swiggy</span>
+<span class="kw">GROUP BY</span> Price_range
+<span class="kw">ORDER BY</span> Total_orders <span class="kw">DESC</span>;</pre>
+      </div>
+    </div>
+
+    <!-- Weekend Analysis -->
+    <div class="sql-card fade-up">
+      <div class="card-header">
+        <div class="card-icon" style="background:rgba(62,240,136,0.1);">📆</div>
+        <span class="card-title">Revenue by Day of Week</span>
+        <span class="card-category">Behavioral</span>
+      </div>
+      <div class="card-body">
+<pre><span class="kw">SELECT</span>
+  <span class="fn">DAYNAME</span>(d.Full_date)
+    <span class="kw">AS</span> Week_Day,
+  <span class="fn">DATE_FORMAT</span>(d.Full_date,<span class="str">'%w'</span>)
+    <span class="kw">AS</span> Week_No,
+  <span class="fn">SUM</span>(f.Price_INR)
+    <span class="kw">AS</span> Weekly_Revenue
+<span class="kw">FROM</span> <span class="tbl">fact_swiggy</span> f
+<span class="kw">JOIN</span> <span class="tbl">dim_date</span> d
+  <span class="kw">ON</span> f.date_id <span class="op">=</span> d.date_id
+<span class="kw">GROUP BY</span>
+  <span class="fn">DAYNAME</span>(d.Full_date),
+  <span class="fn">DATE_FORMAT</span>(d.Full_date,<span class="str">'%w'</span>)
+<span class="kw">ORDER BY</span> Weekly_Revenue <span class="kw">DESC</span>;</pre>
+      </div>
+      <div class="card-insight">
+        <span class="insight-icon">◆</span>
+        <strong>Weekends dominate</strong> — highest orders and revenue observed on Sat & Sun.
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- INSIGHTS -->
+<section id="sec4">
+  <p class="section-label fade-up">Business Intelligence</p>
+  <h2 class="section-title fade-up">Key Findings</h2>
+  <div class="insight-grid">
+    <div class="insight-card fade-up">
+      <div class="insight-emoji">📈</div>
+      <div class="insight-text">
+        <h4>Seasonal Demand Spikes</h4>
+        <p>Orders peak in January, May, and August — suggesting seasonal promotions or festivals drive usage at year-start.</p>
+      </div>
+    </div>
+    <div class="insight-card fade-up">
+      <div class="insight-emoji">🗓️</div>
+      <div class="insight-text">
+        <h4>Q2 is the Revenue Leader</h4>
+        <p>Second quarter consistently outperforms others in both order volume and total revenue across all years in the dataset.</p>
+      </div>
+    </div>
+    <div class="insight-card fade-up">
+      <div class="insight-emoji">🏙️</div>
+      <div class="insight-text">
+        <h4>City-Level Concentration</h4>
+        <p>Top 10 cities drive a disproportionate share of orders and revenue, reflecting urban density and delivery network strength.</p>
+      </div>
+    </div>
+    <div class="insight-card fade-up">
+      <div class="insight-emoji">🍕</div>
+      <div class="insight-text">
+        <h4>Category × Rating Correlation</h4>
+        <p>Analysis of cuisine categories reveals which food types earn both high order counts and high customer ratings simultaneously.</p>
+      </div>
+    </div>
+    <div class="insight-card fade-up">
+      <div class="insight-emoji">📅</div>
+      <div class="insight-text">
+        <h4>Weekend Revenue Uplift</h4>
+        <p>Saturday and Sunday generate significantly higher order volumes and revenue compared to weekdays — a clear behavioral pattern.</p>
+      </div>
+    </div>
+    <div class="insight-card fade-up">
+      <div class="insight-emoji">💲</div>
+      <div class="insight-text">
+        <h4>Mid-Range Pricing Dominates</h4>
+        <p>The ₹100–299 price band captures the majority of orders, pointing to a value-conscious customer base on the platform.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TECH STACK -->
+<section style="padding-top:0;">
+  <p class="section-label fade-up">Tools & Technologies</p>
+  <div class="tech-list fade-up">
+    <div class="tech-chip"><span>🗄️</span> MySQL 8.0</div>
+    <div class="tech-chip"><span>⭐</span> Star Schema / Data Warehouse</div>
+    <div class="tech-chip"><span>🔧</span> Window Functions</div>
+    <div class="tech-chip"><span>📐</span> CTEs & Subqueries</div>
+    <div class="tech-chip"><span>🔗</span> Multi-table JOINs</div>
+    <div class="tech-chip"><span>📊</span> Aggregate Analytics</div>
+    <div class="tech-chip"><span>🧹</span> ETL & Data Cleaning</div>
+    <div class="tech-chip"><span>📅</span> Date Functions</div>
+    <div class="tech-chip"><span>💡</span> CASE WHEN Logic</div>
+    <div class="tech-chip"><span>🔢</span> ROW_NUMBER() Deduplication</div>
+  </div>
+</section>
+
+<footer>
+  <span>Swiggy SQL Data Analysis · Built with MySQL</span>
+  <span>Star Schema · Data Warehouse · 25+ Queries</span>
+</footer>
+
+<script>
+  // ── SCROLL ANIMATIONS ──
+  const fadeEls = document.querySelectorAll('.fade-up');
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        obs.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.1 });
+  fadeEls.forEach(el => obs.observe(el));
+
+  // ── NAV DOTS ──
+  const sections = ['sec0','sec1','sec2','sec3','sec4'];
+  const dots = document.querySelectorAll('.dot');
+
+  dots.forEach(dot => {
+    dot.addEventListener('click', () => {
+      const idx = parseInt(dot.dataset.section);
+      document.getElementById(sections[idx])?.scrollIntoView({ behavior: 'smooth' });
+    });
+  });
+
+  const sectionObserver = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        const idx = sections.indexOf(e.target.id);
+        if (idx !== -1) {
+          dots.forEach(d => d.classList.remove('active'));
+          dots[idx]?.classList.add('active');
+        }
+      }
+    });
+  }, { threshold: 0.4 });
+
+  sections.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) sectionObserver.observe(el);
+  });
+
+  // ── COPY SQL ON CLICK ──
+  document.querySelectorAll('.sql-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const code = card.querySelector('pre')?.innerText;
+      if (!code) return;
+      navigator.clipboard.writeText(code).then(() => {
+        const header = card.querySelector('.card-title');
+        const orig = header.textContent;
+        header.textContent = '✓ Copied to clipboard!';
+        setTimeout(() => header.textContent = orig, 1500);
+      });
+    });
+  });
+</script>
+</body>
+</html>
